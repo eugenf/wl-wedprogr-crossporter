@@ -25,11 +25,9 @@
 		<a href="<?php echo add_query_arg( array( 'tab' => 'general', 'settings-updated' => false ), $current_page ); ?>" class="nav-tab <?php echo $active_tab == 'general' ? 'nav-tab-active' : ''; ?>">
 			<?php _e('General', $this->plugin_slug); ?>
 		</a>
-		<?php /*
 		<a href="<?php echo add_query_arg( array( 'tab' => 'advanced', 'settings-updated' => false ), $current_page ); ?>" class="nav-tab <?php echo $active_tab == 'advanced' ? 'nav-tab-active' : ''; ?>">
 			<?php _e('Advanced', $this->plugin_slug); ?>
 		</a>
-		*/ ?>
 	</h2>
 	<?php include_once( 'admin-' . $active_tab . '.php' ); ?>
 </div>

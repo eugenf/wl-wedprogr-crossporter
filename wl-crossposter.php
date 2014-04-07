@@ -6,7 +6,6 @@
  * @link      http://wildlabs.com
  * @copyright 2014 Eugene F / WildLabs
  *
- * @wordpress-plugin
  * Plugin Name:       WildLabs CrossPoster
  * Plugin URI:        -
  * Description:       Plugin to cross-post on multiple blogs.
@@ -29,17 +28,25 @@ if ( ! defined( 'WPINC' ) ) {
  *----------------------------------------------------------------------------*/
 
 require_once( plugin_dir_path( __FILE__ ) . 'public/class-wl-crossposter.php' );
+require_once( plugin_dir_path( __FILE__ ) . 'public/class-wl-xmlrpc.php' );
 
 register_activation_hook( __FILE__, array( 'WL_CrossPoster', 'activate' ) );
 register_deactivation_hook( __FILE__, array( 'WL_CrossPoster', 'deactivate' ) );
 
 add_action( 'plugins_loaded', array( 'WL_CrossPoster', 'get_instance' ) );
 
+if (!defined('XILIXMLRPC_VER')) {
+	define('XILIXMLRPC_VER','0.5.0');
+}
+
+include_once(ABSPATH . WPINC . '/class-IXR.php');
+include_once(ABSPATH . WPINC . '/class-wp-http-ixr-client.php');
+
 /*----------------------------------------------------------------------------*
  * Dashboard and Administrative Functionality
  *----------------------------------------------------------------------------*/
 
-if ( is_admin() && ( ! defined( 'DOING_AJAX' ) || ! DOING_AJAX ) ) {
+if ( is_admin() ) {
 
 	require_once( plugin_dir_path( __FILE__ ) . 'admin/class-wl-crossposter-admin.php' );
 	add_action( 'plugins_loaded', array( 'WL_CrossPoster_Admin', 'get_instance' ) );

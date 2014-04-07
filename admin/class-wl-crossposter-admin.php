@@ -9,10 +9,6 @@
  * @copyright 2014 Eugene F / WildLabs
  */
 
-define('XILIXMLRPC_VER','0.5.0'); /* used in admin UI */
-
-include_once(ABSPATH . WPINC . '/class-IXR.php'); /* not included in wp-settings */
-include_once(ABSPATH . WPINC . '/class-wp-http-ixr-client.php'); /* not included in wp-settings */
 
 /**
  * Plugin class. This class should ideally be used to work with the
@@ -31,6 +27,15 @@ class WL_CrossPoster_Admin {
 	 * @var      object
 	 */
 	protected static $instance = null;
+
+	/**
+	 * Plugin instance
+	 *
+	 * @since    1.0.0
+	 *
+	 * @var      object
+	 */
+	protected $plugin = null;
 
 	/**
 	 * Slug of the plugin screen.
@@ -64,6 +69,15 @@ class WL_CrossPoster_Admin {
 
 		// Register options
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
+
+		// Add metaboxes
+		add_action( 'add_meta_boxes', array( $this, 'add_metaboxes' ) );
+
+		// Process forms
+		add_action( 'admin_init', array( $this, 'process' ) );
+
+		// Init regenerate post shares ajax request handler
+		add_action( 'wp_ajax_wl_crosspost_post', array( $this, 'ajax_crosspost_post' ) );
 
 		// Add an action link pointing to the options page.
 		$plugin_basename = plugin_basename( plugin_dir_path( __DIR__ ) . $this->plugin_slug . '.php' );
@@ -292,6 +306,10 @@ class WL_CrossPoster_Admin {
 	 */
 	public function add_metaboxes()
 	{
+		if (!$this->plugin->get_option('xmlrpc_url')) {
+			return;
+		}
+
 	    $screens = array( 'post' );
 
 	    foreach ( $screens as $screen ) {
@@ -316,8 +334,94 @@ class WL_CrossPoster_Admin {
 		$value = get_post_meta( $post->ID, '_wl_crossposter_post', true );
 
 		?>
-			<input type="hidden" value="1" name="wl_crossposter_post">
-			<input type="checkbox" value="1" name="wl_crossposter_post" id="wl_crossposter_post">
+			<p id="wl-crosspost-post-message" class="wl-crosspost-post-message hidden"></p>
+			<p>
+				<a href="#" id="wl-crosspost-post-now" class="button button-large"><?php _e('CrossPost Now', $this->plugin_slug) ?></a>
+				<span class="spinner" id="wl-crosspost-post-spinner"></span>
+			</p>
+
+			<p>Cross-post this post to the <strong><?php echo $this->plugin->get_option('xmlrpc_url') ?></strong>
+				as <strong><?php echo $this->plugin->get_option('username') ?></strong></p>
+			<script>
+				(function ( $ ) {
+					$(function () {
+
+						$link    = $('#wl-crosspost-post-now');
+						$spinner = $('#wl-crosspost-post-spinner');
+						$message = $('#wl-crosspost-post-message');
+
+						$link.click(function(e) {
+							e.preventDefault();
+							if(!confirm('<?php _e('Are you sure?', $this->plugin_slug) ?>')){
+								return;
+							}
+							$link.attr('disabled', true);
+							$spinner.show();
+							$message.hide().removeClass('error').removeClass('success').text('');
+
+							$.get(ajaxurl, {
+								// 'nonce': $('#_wlsc_regenerate_nonce').val(),
+								'action': 'wl_crosspost_post',
+								'post_id': $('#post_ID').val()
+							}, function(data) {
+
+								$spinner.fadeOut('fast', function(){
+									$link.attr('disabled', false);
+								});
+
+								if (data.success) {
+									$message.addClass('success');
+								} else {
+									$message.addClass('error');
+								}
+								if (data.msg) {
+									$message.text(data.msg).fadeIn('fast');
+								}
+							}, 'json');
+
+						});
+					});
+				}(jQuery));
+			</script>
 		<?php
+	}
+
+	/**
+	 * Simple AJAX CrossPoster wrapper
+	 * @return string
+	 */
+	public function ajax_crosspost_post()
+	{
+		$post_id = (int) $_REQUEST['post_id'];
+		$success = 0;
+
+		if ($post_id) {
+			$posted = WL_XMLRPC::get_instance()->post($post_id);
+			if ($posted) {
+				$success = 1;
+			}
+		}
+
+		$msg = __($success ? 'Entry successfully posted/updated.' : 'Something went wrong. Please repload the page and try again.', $this->plugin_slug);
+
+		echo json_encode(array(
+			'msg'     => $msg,
+			'success' => $success,
+		));
+		exit;
+	}
+
+	/**
+	 * Admin page form processor
+	 */
+	public function process()
+	{
+		if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_GET['page']) && $_GET['page'] == $this->plugin_slug) {
+			if (isset($_POST['_wpnonce']) && wp_verify_nonce($_POST['_wpnonce'], 'clear')) {
+				$this->plugin->clear();
+				$this->redirect();
+			}
+			wp_die('You have no access to this page');
+		}
 	}
 }
