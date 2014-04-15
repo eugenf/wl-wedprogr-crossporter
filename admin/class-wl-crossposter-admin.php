@@ -348,6 +348,12 @@ class WL_CrossPoster_Admin {
 						<a href="#" id="wl-crosspost-post-now" class="button button-large"><?php _e('CrossPost Now', $this->plugin_slug) ?></a>
 						<span class="spinner" id="wl-crosspost-post-spinner"></span>
 					</p>
+					<p>
+						<label for="">
+							<input type="checkbox" name="wl-force-repost" id="wl-force-repost" value="1">
+							<span>Force add</span>
+						</label>
+					</p>
 					<p>Cross-post this post to the <strong><?php echo $this->plugin->get_option('xmlrpc_url') ?></strong>
 						as <strong><?php echo $this->plugin->get_option('username') ?></strong></p>
 					<p>
@@ -378,6 +384,7 @@ class WL_CrossPoster_Admin {
 						$unlocked    = $('#wl-crossposter-unlocked');
 
 						$link        = $('#wl-crosspost-post-now');
+						$force       = $('#wl-force-repost')
 						$spinner     = $('#wl-crosspost-post-spinner');
 						$message     = $('#wl-crosspost-post-message');
 
@@ -414,7 +421,8 @@ class WL_CrossPoster_Admin {
 							$.get(ajaxurl, {
 								'nonce': $('#wl_crossposter_nonce').val(),
 								'action': 'wl_crosspost_post',
-								'post_id': $('#post_ID').val()
+								'post_id': $('#post_ID').val(),
+								'force': $force.filter(':checked').length
 							}, function(data) {
 								$spinner.fadeOut('fast', function(){
 									$link.attr('disabled', false);
@@ -504,6 +512,13 @@ class WL_CrossPoster_Admin {
 		$success = 0;
 
 		if ($post_id) {
+
+			$force = (int) $_REQUEST['force'];
+
+			if ($force || WP_DEBUG) {
+				$this->plugin->clear();
+			}
+
 			$posted = WL_XMLRPC::get_instance()->post($post_id);
 			if ($posted) {
 				$success = 1;

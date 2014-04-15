@@ -158,12 +158,12 @@ class WL_XMLRPC {
 		$original_post = get_post($post_id);
 
 		$post = array(
-				'post_title'    => $original_post->post_title,
-				'post_type'     => 'post',
-				'post_content'  => $original_post->post_content,
-				'post_name'     => $original_post->post_name,
-				'post_status'	=> 'publish',
-				'custom_fields' => array(
+			'post_title'    => $original_post->post_title,
+			'post_type'     => 'post',
+			'post_content'  => $original_post->post_content,
+			'post_name'     => $original_post->post_name,
+			'post_status'	=> 'publish',
+			'custom_fields' => array(
 				'settings'      => array(
 					'related' => 'yes',
 					'meta'    => 'yes',
@@ -174,6 +174,7 @@ class WL_XMLRPC {
 					'sidebar' => '',
 				),
 			),
+			'terms_names'	=> $this->get_terms($original_post),
 		);
 
 		# send new post
@@ -215,7 +216,7 @@ class WL_XMLRPC {
 			'post_title'   => $original_post->post_title,
 			'post_content' => $post_content,
 			'post_name'    => $original_post->post_name,
-			'post_excerpt' => 'BLABLABLA',
+			'terms_names'  => $this->get_terms($original_post),
 		);
 
 		if ($post_thumbnail_id) {
@@ -238,21 +239,75 @@ class WL_XMLRPC {
 		return $status;
 	}
 
+	protected function get_terms($post, $taxonomy = 'category')
+	{
+		return array(
+			'category' => wp_get_post_terms($post->ID, $taxonomy, array('fields' => 'names')),
+		);
+
+		// $terms = array();
+
+		// foreach ($post_terms as $term) {
+		// 	$this->query('wp.getTerms', $taxonomy, array(
+		// 		'search' => $term,
+		// 	));
+
+		// 	$_terms = $this->current_request;
+
+		// 	if (count($_terms)) {
+		// 		$terms[] = $_terms[0];
+		// 	} else{
+		// 		$success = $this->query('wp.newTerm', array(
+		// 			'name'     => $term,
+		// 			'taxonomy' => $taxonomy,
+		// 		));
+
+		// 		$term_id = $this->current_request;
+
+		// 		$this->query('wp.getTerm', $taxonomy, $term_id);
+
+
+		// 		$terms[] = $this->current_request;
+		// 	}
+		// }
+
+		// return $terms;
+	}
+
 	protected function send_attachments($post_id)
 	{
-		$attachments = get_children(array(
-			'post_parent' => $post_id,
-    		'post_type'   => 'attachment',
-		));
+		// $attachments = get_children(array(
+		// 	'post_parent' => $post_id,
+  //   		'post_type'   => 'attachment',
+		// ));
+		$attachments = array();
 
 		$post_thumbnail_id = get_post_thumbnail_id($post_id);
 
+		$post_thumbnail = get_post($post_thumbnail_id);
+
+		if ($post_thumbnail) {
+			$attachments[$post_thumbnail_id] = $post_thumbnail;
+		}
+
+		# check if the post thumbnail attached to the post
+		// $post_thumbnail_attached = false;
+		// if ($post_thumbnail_id) {
+		// 	foreach ($attachments as $attachment) {
+		// 		if ($attachment->ID == $post_thumbnail_id) {
+		// 			$post_thumbnail_attached = true;
+		// 		}
+		// 	}
+		// 	if (!$post_thumbnail_attached) {
+		// 		$attachment = get_post($post_thumbnail_id);
+
+		// 		$attachments[$post_thumbnail_id] = $attachment;
+		// 	}
+		// }
+
 		if (is_array($attachments) && count($attachments)) {
-
 			$to_post_id = (int) get_post_meta($post_id , $this->meta, true);
-
 			$guids = array();
-
 			foreach ( $attachments as $attachment_id => $attachment ) {
 
 				$to_attachment_id = (int) get_post_meta( $attachment_id , $this->meta, true );
