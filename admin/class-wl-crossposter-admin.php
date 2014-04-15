@@ -78,6 +78,7 @@ class WL_CrossPoster_Admin {
 
 		// Init regenerate post shares ajax request handler
 		add_action( 'wp_ajax_wl_crosspost_post', array( $this, 'ajax_crosspost_post' ) );
+		add_action( 'wp_ajax_wl_crosspost_lock', array( $this, 'ajax_crosspost_lock' ) );
 
 		// Add an action link pointing to the options page.
 		$plugin_basename = plugin_basename( plugin_dir_path( __DIR__ ) . $this->plugin_slug . '.php' );
@@ -306,10 +307,6 @@ class WL_CrossPoster_Admin {
 	 */
 	public function add_metaboxes()
 	{
-		if (!$this->plugin->get_option('xmlrpc_url')) {
-			return;
-		}
-
 	    $screens = array( 'post' );
 
 	    foreach ( $screens as $screen ) {
@@ -329,26 +326,82 @@ class WL_CrossPoster_Admin {
 	 */
 	public function display_crosspost_box($post)
 	{
+
+		if (!$this->plugin->get_option('xmlrpc_url')) {
+			?>
+				<p>Before you proceed to CrossPosting you have to update the options <a href="<?php echo admin_url('options-general.php?page=' . $this->plugin_slug); ?>">here</a></p>
+			<?php
+			return;
+		}
+
 		wp_nonce_field( 'wl_crossposter', 'wl_crossposter_nonce' );
 
-		$value = get_post_meta( $post->ID, '_wl_crossposter_post', true );
+		$to_post_id = (int) get_post_meta( $post->ID, '_xmlrpc', true );
+		$locked     = (int) get_post_meta( $post->ID, '_locked', true );
 
 		?>
-			<p id="wl-crosspost-post-message" class="wl-crosspost-post-message hidden"></p>
-			<p>
-				<a href="#" id="wl-crosspost-post-now" class="button button-large"><?php _e('CrossPost Now', $this->plugin_slug) ?></a>
-				<span class="spinner" id="wl-crosspost-post-spinner"></span>
-			</p>
+			<div id="wl-crossposter">
+				<p id="wl-crosspost-post-message" class="wl-crosspost-post-message hidden"></p>
 
-			<p>Cross-post this post to the <strong><?php echo $this->plugin->get_option('xmlrpc_url') ?></strong>
-				as <strong><?php echo $this->plugin->get_option('username') ?></strong></p>
+				<div id="wl-crossposter-unlocked" class="<?php echo $locked ? 'hidden' : '' ?>">
+					<p>
+						<a href="#" id="wl-crosspost-post-now" class="button button-large"><?php _e('CrossPost Now', $this->plugin_slug) ?></a>
+						<span class="spinner" id="wl-crosspost-post-spinner"></span>
+					</p>
+					<p>Cross-post this post to the <strong><?php echo $this->plugin->get_option('xmlrpc_url') ?></strong>
+						as <strong><?php echo $this->plugin->get_option('username') ?></strong></p>
+					<p>
+						<span class="submitbox">
+							<a href="" class="submitdelete" id="wl-crosspost-post-lock"><?php _e('Lock post', $this->plugin_slug) ?></a>
+						</span>
+						&nbsp;&nbsp;
+						<em>Prevent future updates.</em>
+					</p>
+				</div>
+				<div id="wl-crossposter-locked" class="<?php echo $locked ? '' : 'hidden' ?>">
+					<p>
+						<a href="#" id="wl-crosspost-post-unlock" class="button"><?php _e('Unlock', $this->plugin_slug) ?></a>
+						<span class="spinner" id="wl-crosspost-post-spinner2"></span>
+					</p>
+					<p>
+						This post is locked for cross-posting.
+					</p>
+				</div>
+			</div>
 			<script>
 				(function ( $ ) {
 					$(function () {
 
-						$link    = $('#wl-crosspost-post-now');
-						$spinner = $('#wl-crosspost-post-spinner');
-						$message = $('#wl-crosspost-post-message');
+						$crossposter = $('#wl-crossposter');
+
+						$locked      = $('#wl-crossposter-locked');
+						$unlocked    = $('#wl-crossposter-unlocked');
+
+						$link        = $('#wl-crosspost-post-now');
+						$spinner     = $('#wl-crosspost-post-spinner');
+						$message     = $('#wl-crosspost-post-message');
+
+						$lock        = $('#wl-crosspost-post-lock');
+						$unlock      = $('#wl-crosspost-post-unlock');
+
+						$spinner2    = $('#wl-crosspost-post-spinner2');
+
+						function _lock() {
+							$message.hide().removeClass('error').removeClass('success').text('');
+							$unlocked.fadeOut('fast', function(){
+								$locked.fadeIn('fast');
+							});
+						}
+						function _unlock() {
+							$message.hide().removeClass('error').removeClass('success').text('');
+							$locked.fadeOut('fast', function(){
+								$unlocked.fadeIn('fast');
+							});
+						}
+
+						function _empty_message() {
+							$message.hide().removeClass('error').removeClass('success').text('');
+						}
 
 						$link.click(function(e) {
 							e.preventDefault();
@@ -357,18 +410,15 @@ class WL_CrossPoster_Admin {
 							}
 							$link.attr('disabled', true);
 							$spinner.show();
-							$message.hide().removeClass('error').removeClass('success').text('');
-
+							_empty_message();
 							$.get(ajaxurl, {
-								// 'nonce': $('#_wlsc_regenerate_nonce').val(),
+								'nonce': $('#wl_crossposter_nonce').val(),
 								'action': 'wl_crosspost_post',
 								'post_id': $('#post_ID').val()
 							}, function(data) {
-
 								$spinner.fadeOut('fast', function(){
 									$link.attr('disabled', false);
 								});
-
 								if (data.success) {
 									$message.addClass('success');
 								} else {
@@ -377,6 +427,64 @@ class WL_CrossPoster_Admin {
 								if (data.msg) {
 									$message.text(data.msg).fadeIn('fast');
 								}
+							}, 'json');
+						});
+
+						$lock.click(function(e){
+							e.preventDefault();
+							if(!confirm('<?php _e('Are you sure?', $this->plugin_slug) ?>')){
+								return;
+							}
+							$link.attr('disabled', true);
+							$lock.attr('disabled', true);
+							$spinner.show();
+							_empty_message();
+
+							$.get(ajaxurl, {
+								'nonce': $('#wl_crossposter_nonce').val(),
+								'action': 'wl_crosspost_lock',
+								'lock': 1,
+								'post_id': $('#post_ID').val()
+							}, function(data) {
+								$spinner.fadeOut('fast', function(){
+									$link.attr('disabled', false);
+									$lock.attr('disabled', false);
+								});
+								if (data.success) {
+									_lock();
+									$message.addClass('success');
+								} else {
+									$message.addClass('error');
+								}
+								$message.text(data.msg).fadeIn('fast');
+							}, 'json');
+						});
+
+						$unlock.click(function(e){
+							e.preventDefault();
+							if(!confirm('<?php _e('Are you sure?', $this->plugin_slug) ?>')){
+								return;
+							}
+							$unlock.attr('disabled', true);
+							$spinner2.show();
+							_empty_message();
+
+							$.get(ajaxurl, {
+								'nonce': $('#wl_crossposter_nonce').val(),
+								'action': 'wl_crosspost_lock',
+								'lock': 0,
+								'post_id': $('#post_ID').val()
+							}, function(data) {
+								$spinner2.fadeOut('fast', function(){
+									$unlock.attr('disabled', false);
+								});
+								if (data.success) {
+									_unlock();
+									$message.addClass('success');
+								} else {
+									$message.addClass('error');
+								}
+								$message.text(data.msg).fadeIn('fast');
 							}, 'json');
 
 						});
@@ -403,6 +511,37 @@ class WL_CrossPoster_Admin {
 		}
 
 		$msg = __($success ? 'Entry successfully posted/updated.' : 'Something went wrong. Please repload the page and try again.', $this->plugin_slug);
+
+		echo json_encode(array(
+			'msg'     => $msg,
+			'success' => $success,
+		));
+		exit;
+	}
+
+	/**
+	 * Simple AJAX CrossPoster locker
+	 * @return string
+	 */
+	public function ajax_crosspost_lock()
+	{
+		$post_id = (int) $_REQUEST['post_id'];
+		$lock = (int) $_REQUEST['lock'];
+
+		$success = 0;
+
+		if ($post_id) {
+			if ($lock) {
+				update_post_meta($post_id, '_locked', 1);
+			} else {
+				delete_post_meta($post_id, '_locked');
+			}
+			$success = 1;
+		}
+
+		$msg = $lock ? 'Entry successfully locked.' : 'Entry successfully unlocked.';
+
+		$msg = __($success ? $msg : 'Something went wrong. Please repload the page and try again.', $this->plugin_slug);
 
 		echo json_encode(array(
 			'msg'     => $msg,

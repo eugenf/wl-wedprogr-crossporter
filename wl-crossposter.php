@@ -6,9 +6,9 @@
  * @link      http://wildlabs.com
  * @copyright 2014 Eugene F / WildLabs
  *
- * Plugin Name:       WildLabs CrossPoster
+ * Plugin Name:       WedPro.gr CrossPoster
  * Plugin URI:        -
- * Description:       Plugin to cross-post on multiple blogs.
+ * Description:       Custom plugin to cross-post to wedpro.gr blog.
  * Version:           1.0.0
  * Author:            Eugene F
  * Author URI:        http://figursky.com
