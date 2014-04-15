@@ -132,15 +132,15 @@ class WL_XMLRPC {
 		} else {
 
 			# upload the post data
-			$remote_id = $this->create_post($post_id);
+			$success = $this->create_post($post_id);
 
 			# add meta with remote id
-			if ($remote_id) {
-				update_post_meta($post_id, $this->meta, $this->current_request);
-			}
+			if ($success) {
 
-			# copy remote id
-			$to_post_id = $remote_id;
+				$to_post_id = $this->current_request;
+
+				update_post_meta($post_id, $this->meta, $to_post_id);
+			}
 
 			# send all the attachments
 			$guids = $this->send_attachments($post_id);
@@ -148,7 +148,7 @@ class WL_XMLRPC {
 			// update content after changing attachment url
 			if ( $guids ) {
 				// create attachments link to parent in remote
-				$remote_id = $this->update_post( $post_id, $to_post_id, $guids );
+				$success = $this->update_post( $post_id, $to_post_id, $guids );
 			}
 		}
 
@@ -164,7 +164,7 @@ class WL_XMLRPC {
 				'post_type'     => 'post',
 				'post_content'  => $original_post->post_content,
 				'post_name'     => $original_post->post_name,
-				'post_status'	=> 'draft',
+				'post_status'	=> 'publish',
 				'custom_fields' => array(
 				'settings'      => array(
 					'related' => 'yes',
