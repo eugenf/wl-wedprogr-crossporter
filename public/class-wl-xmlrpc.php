@@ -136,9 +136,7 @@ class WL_XMLRPC {
 
 			# add meta with remote id
 			if ($success) {
-
 				$to_post_id = $this->current_request;
-
 				update_post_meta($post_id, $this->meta, $to_post_id);
 			}
 
@@ -181,6 +179,8 @@ class WL_XMLRPC {
 		# send new post
 		$status = $this->query('wp.newPost', $post);
 
+		// echo 'ADDED POST<br>';
+
 		return $status;
 	}
 
@@ -194,9 +194,9 @@ class WL_XMLRPC {
 
 		$post_content = $original_post->post_content;
 
-
 		$post_thumbnail_id = false;
 		if ( $guids ) {
+
 			foreach ( $guids as $guid ) {
 
 				$post_content = str_replace ( $guid['local'], $guid['remote'], $post_content );
@@ -215,6 +215,7 @@ class WL_XMLRPC {
 			'post_title'   => $original_post->post_title,
 			'post_content' => $post_content,
 			'post_name'    => $original_post->post_name,
+			'post_excerpt' => 'BLABLABLA',
 		);
 
 		if ($post_thumbnail_id) {
@@ -223,10 +224,16 @@ class WL_XMLRPC {
 
 		$status = $this->query('wp.editPost', $to_post_id, $post);
 
-		$status = $this->rpc->query(
-			'wp.editPost',
-			$post
-		);
+		// echo 'UPDATED POST<br>';
+		// echo '<pre>';
+		// var_dump($status);
+		// var_dump($this->current_request);
+		// exit;
+
+		// $status = $this->rpc->query(
+		// 	'wp.editPost',
+		// 	$post
+		// );
 
 		return $status;
 	}
@@ -267,14 +274,16 @@ class WL_XMLRPC {
 
 					# check for uploaded file
 					if ($status) {
+
+						// echo 'ADDED ATTACHMENT<br>';
+
 						$remote_url = $this->current_request['url'];
 						$remote_id  = $this->current_request['id'];
 
-						update_post_meta($attachment_id, $this->meta, $remote_id);
+						$updated = update_post_meta($attachment_id, $this->meta, $remote_id);
 					} else {
 						$this->raise_error();
 					}
-
 				} else {
 
 					$remote_id = $to_attachment_id;
@@ -286,6 +295,10 @@ class WL_XMLRPC {
 
 					# make a call
 					$status = $this->query('wp.getMediaItem', $remote_id);
+
+					// echo 'GRABBED ATTACHMENT<br>';
+					// echo '<pre>';
+					// var_dump($this->current_request);
 
 					# grab the url to change
 					$remote_url = $this->current_request['link'];
